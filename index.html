@@ -461,6 +461,24 @@
   .status-chip.sel-med  { background:rgba(247,151,30,0.15); color:var(--accent4); border-color:var(--accent4); }
   .status-chip.sel-low  { background:rgba(67,233,123,0.15); color:var(--accent3); border-color:var(--accent3); }
   .created-at { font-size:11px; color:var(--muted); margin-top:4px; }
+
+  /* FILE NAV ITEMS */
+  .file-nav-item {
+    display:flex; align-items:center; gap:8px;
+    padding:7px 10px; border-radius:8px;
+    cursor:pointer; font-size:12px; font-weight:400;
+    color:var(--muted); transition:all 0.15s;
+    text-decoration:none;
+  }
+  .file-nav-item:hover { background:var(--card); color:var(--text); }
+  .file-nav-item .file-icon { font-size:13px; flex-shrink:0; }
+  .file-nav-item .file-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
+  .file-nav-item .file-del {
+    opacity:0; font-size:10px; color:var(--muted);
+    transition:opacity 0.15s; padding:1px 3px; flex-shrink:0;
+  }
+  .file-nav-item:hover .file-del { opacity:1; }
+  .file-nav-item .file-del:hover { color:var(--accent2); }
 </style>
 </head>
 <body>
@@ -493,6 +511,14 @@
       <div class="nav-item" onclick="openProjectModal()">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Thêm dự án
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">File quan trọng</div>
+      <div id="fileNavList"></div>
+      <div class="nav-item" onclick="openFileModal()">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Thêm file / link
       </div>
     </div>
   </aside>
@@ -542,6 +568,44 @@
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeAddModal()">Huỷ</button>
       <button class="btn btn-primary" onclick="submitTask()">Thêm task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FILE MODAL -->
+<div class="modal-overlay" id="fileModal">
+  <div class="modal">
+    <h3>📎 Thêm file / link quan trọng</h3>
+    <div class="form-row">
+      <label class="form-label">Tên</label>
+      <input class="form-input" id="newFileName" placeholder="VD: SEO Keyword Research Q1..." />
+    </div>
+    <div class="form-row">
+      <label class="form-label">URL / Link</label>
+      <input class="form-input" id="newFileUrl" placeholder="https://docs.google.com/..." />
+    </div>
+    <div class="form-row">
+      <label class="form-label">Loại</label>
+      <select class="form-input" id="newFileType">
+        <option value="gdoc">📄 Google Docs / Sheets</option>
+        <option value="gdrive">📁 Google Drive</option>
+        <option value="notion">📓 Notion</option>
+        <option value="figma">🎨 Figma</option>
+        <option value="github">💻 GitHub</option>
+        <option value="sheet">📊 Spreadsheet</option>
+        <option value="link">🔗 Link khác</option>
+        <option value="file">📎 File</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Dự án liên quan (tuỳ chọn)</label>
+      <select class="form-input" id="newFileProject">
+        <option value="">— Không có —</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeFileModal()">Huỷ</button>
+      <button class="btn btn-primary" onclick="submitFile()">Lưu</button>
     </div>
   </div>
 </div>
@@ -686,6 +750,11 @@ function defaultState() {
       { id:'r8', time:'21:00', label:'Xem lại trades trong ngày + update journal', done:false },
     ],
     notes: '',
+    files: [
+      { id:'f1', name:'SEO Keyword Master Sheet', url:'https://docs.google.com', type:'sheet', project:'omega' },
+      { id:'f2', name:'Storimatic n8n Workflow', url:'https://github.com', type:'github', project:'storimatic' },
+      { id:'f3', name:'Trading Journal', url:'https://notion.so', type:'notion', project:'trading' },
+    ],
   };
 }
 
@@ -734,6 +803,7 @@ function renderProjectNav() {
       <span class="proj-del" onclick="event.stopPropagation();deleteProject('${p.id}')" title="Xoá dự án">✕</span>
     </div>
   `).join('');
+  renderFileNav();
 }
 
 function updateBadge() {
@@ -1236,6 +1306,62 @@ function submitTask() {
 }
 
 // Modal project
+const FILE_ICONS = { gdoc:'📄', gdrive:'📁', notion:'📓', figma:'🎨', github:'💻', sheet:'📊', link:'🔗', file:'📎' };
+
+function renderFileNav() {
+  const el = document.getElementById('fileNavList');
+  if (!el) return;
+  if (!state.files || state.files.length === 0) {
+    el.innerHTML = `<div style="padding:4px 10px;font-size:11px;color:var(--muted)">Chưa có file nào</div>`;
+    return;
+  }
+  el.innerHTML = state.files.map(f => `
+    <div class="file-nav-item" title="${f.url}">
+      <span class="file-icon">${FILE_ICONS[f.type]||'📎'}</span>
+      <span class="file-name" onclick="openFile('${f.id}')">${f.name}</span>
+      <span class="file-del" onclick="deleteFile('${f.id}')">✕</span>
+    </div>
+  `).join('');
+}
+
+function openFile(id) {
+  const f = state.files.find(f=>f.id===id);
+  if (f?.url) window.open(f.url, '_blank');
+}
+
+function deleteFile(id) {
+  if (!confirm('Xoá file/link này?')) return;
+  state.files = state.files.filter(f=>f.id!==id);
+  save(); renderFileNav();
+}
+
+function openFileModal() {
+  const sel = document.getElementById('newFileProject');
+  sel.innerHTML = `<option value="">— Không có —</option>` +
+    state.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('fileModal').classList.add('open');
+  setTimeout(()=>document.getElementById('newFileName').focus(), 100);
+}
+
+function closeFileModal() {
+  document.getElementById('fileModal').classList.remove('open');
+  document.getElementById('newFileName').value='';
+  document.getElementById('newFileUrl').value='';
+}
+
+function submitFile() {
+  const name = document.getElementById('newFileName').value.trim();
+  const url  = document.getElementById('newFileUrl').value.trim();
+  if (!name) return;
+  if (!state.files) state.files = [];
+  state.files.push({
+    id: t(), name, url,
+    type:    document.getElementById('newFileType').value,
+    project: document.getElementById('newFileProject').value,
+  });
+  save(); closeFileModal(); renderFileNav();
+}
+
 function deleteProject(id) {
   if (!confirm('Xoá dự án này? Các task thuộc dự án sẽ chuyển về "Cá nhân".')) return;
   state.tasks.forEach(t => { if(t.project===id) t.project='personal'; });
