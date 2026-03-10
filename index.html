@@ -354,7 +354,74 @@
     .sections-grid { grid-template-columns:1fr; }
     .stats-row { grid-template-columns:repeat(2,1fr); }
     .sidebar { width:220px; }
+    .detail-panel { width:100%; right:-100%; }
   }
+
+  /* TASK DETAIL PANEL */
+  .detail-panel {
+    position:fixed; top:0; right:-420px; width:400px; height:100vh;
+    background:var(--surface); border-left:1px solid var(--border);
+    z-index:50; display:flex; flex-direction:column;
+    transition:right 0.3s cubic-bezier(.4,0,.2,1);
+    box-shadow:-8px 0 40px rgba(0,0,0,0.4);
+  }
+  .detail-panel.open { right:0; }
+  .detail-header {
+    padding:20px 20px 16px;
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  .detail-header h3 { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; flex:1; }
+  .detail-close {
+    background:none; border:none; color:var(--muted);
+    cursor:pointer; font-size:18px; padding:4px 8px;
+    border-radius:6px; transition:all 0.15s;
+  }
+  .detail-close:hover { background:var(--card); color:var(--text); }
+  .detail-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .detail-field label {
+    font-size:10px; color:var(--muted); letter-spacing:1px;
+    text-transform:uppercase; font-weight:600; display:block; margin-bottom:6px;
+  }
+  .detail-input {
+    width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:8px; padding:9px 12px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:13px; outline:none;
+    transition:border-color 0.15s;
+  }
+  .detail-input:focus { border-color:var(--accent); }
+  .detail-textarea {
+    width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:13px; outline:none;
+    resize:none; min-height:140px; line-height:1.6;
+    transition:border-color 0.15s;
+  }
+  .detail-textarea:focus { border-color:var(--accent); }
+  .detail-textarea::placeholder { color:var(--muted); }
+  .detail-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .detail-footer {
+    padding:16px 20px; border-top:1px solid var(--border);
+    display:flex; gap:8px;
+  }
+  .detail-backdrop {
+    display:none; position:fixed; inset:0; z-index:49;
+    background:rgba(0,0,0,0.3); backdrop-filter:blur(2px);
+  }
+  .detail-backdrop.open { display:block; }
+  .task-item { cursor:pointer; }
+  .task-body { pointer-events:none; }
+  .task-check, .task-del { pointer-events:all; }
+  .detail-status-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .status-chip {
+    padding:6px 12px; border-radius:99px; font-size:11px; font-weight:600;
+    cursor:pointer; border:1.5px solid transparent; transition:all 0.15s;
+    color:var(--muted); background:var(--card); border-color:var(--border);
+  }
+  .status-chip.sel-high { background:rgba(255,101,132,0.15); color:var(--accent2); border-color:var(--accent2); }
+  .status-chip.sel-med  { background:rgba(247,151,30,0.15); color:var(--accent4); border-color:var(--accent4); }
+  .status-chip.sel-low  { background:rgba(67,233,123,0.15); color:var(--accent3); border-color:var(--accent3); }
+  .created-at { font-size:11px; color:var(--muted); margin-top:4px; }
 </style>
 </head>
 <body>
@@ -463,6 +530,52 @@
       <button class="btn btn-ghost" onclick="closeProjectModal()">Huỷ</button>
       <button class="btn btn-primary" onclick="submitProject()">Tạo dự án</button>
     </div>
+  </div>
+</div>
+
+<!-- TASK DETAIL PANEL -->
+<div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-header">
+    <h3>✏️ Chi tiết task</h3>
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="detail-body">
+    <div class="detail-field">
+      <label>Tên task</label>
+      <input class="detail-input" id="detailTitle" placeholder="Tên công việc..." />
+    </div>
+    <div class="detail-field">
+      <label>Ghi chú / Mô tả</label>
+      <textarea class="detail-textarea" id="detailNote" placeholder="Thêm mô tả, sub-tasks, link tài liệu...&#10;&#10;VD:&#10;- [ ] Bước 1&#10;- [ ] Bước 2&#10;- Link: https://..."></textarea>
+    </div>
+    <div class="detail-row">
+      <div class="detail-field">
+        <label>Dự án</label>
+        <select class="detail-input" id="detailProject"></select>
+      </div>
+      <div class="detail-field">
+        <label>Thời gian</label>
+        <input class="detail-input" id="detailTime" placeholder="9:00 - 10:00" />
+      </div>
+    </div>
+    <div class="detail-field">
+      <label>Ưu tiên</label>
+      <div class="detail-status-row">
+        <div class="status-chip" id="chip-high" onclick="selectPriority('high')">🔴 Cao</div>
+        <div class="status-chip" id="chip-med"  onclick="selectPriority('med')">🟠 Trung bình</div>
+        <div class="status-chip" id="chip-low"  onclick="selectPriority('low')">🟢 Thấp</div>
+      </div>
+    </div>
+    <div class="detail-field">
+      <label>Ngày</label>
+      <input class="detail-input" id="detailDate" type="date" />
+    </div>
+    <div class="created-at" id="detailCreated"></div>
+  </div>
+  <div class="detail-footer">
+    <button class="btn btn-primary" style="flex:1" onclick="saveDetail()">💾 Lưu thay đổi</button>
+    <button class="btn btn-ghost" onclick="deleteTaskFromDetail()">🗑 Xoá</button>
   </div>
 </div>
 
@@ -689,19 +802,19 @@ function renderTaskView() {
 
 function renderTaskItem(t) {
   const proj = state.projects.find(p=>p.id===t.project);
-  const pLabels = { high:'Cao', med:'TB', low:'Thấp' };
   return `
-    <div class="task-item ${t.done?'completed':''}" id="task_${t.id}">
-      <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}')"></div>
+    <div class="task-item ${t.done?'completed':''}" id="task_${t.id}" onclick="openDetail('${t.id}')">
+      <div class="task-check ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}')"></div>
       <div class="task-priority p-${t.priority}"></div>
       <div class="task-body">
         <div class="task-title">${t.title}</div>
         <div class="task-meta">
           ${proj?`<span class="task-project" style="background:${proj.color}22;color:${proj.color}">${proj.name}</span>`:''}
           ${t.time?`<span class="task-time">⏰ ${t.time}</span>`:''}
+          ${t.note?`<span class="task-time">📝 có ghi chú</span>`:''}
         </div>
       </div>
-      <button class="task-del" onclick="deleteTask('${t.id}')">✕</button>
+      <button class="task-del" onclick="event.stopPropagation();deleteTask('${t.id}')">✕</button>
     </div>
   `;
 }
@@ -755,6 +868,74 @@ function bindTasks() {
   document.getElementById('notesArea')?.addEventListener('input', saveNotes);
 }
 function bindRoutine() {}
+
+// ============ TASK DETAIL PANEL ============
+let detailTaskId = null;
+let detailPriority = 'med';
+
+function openDetail(id) {
+  const task = state.tasks.find(t=>t.id===id);
+  if (!task) return;
+  detailTaskId = id;
+  detailPriority = task.priority || 'med';
+
+  // populate fields
+  document.getElementById('detailTitle').value = task.title || '';
+  document.getElementById('detailNote').value = task.note || '';
+  document.getElementById('detailTime').value = task.time || '';
+  document.getElementById('detailDate').value = task.date || today();
+
+  // project select
+  const sel = document.getElementById('detailProject');
+  sel.innerHTML = state.projects.map(p=>`<option value="${p.id}" ${p.id===task.project?'selected':''}>${p.name}</option>`).join('');
+
+  // priority chips
+  selectPriority(detailPriority, false);
+
+  document.getElementById('detailCreated').textContent = task.createdAt ? `Tạo lúc: ${task.createdAt}` : '';
+
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('detailBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('detailTitle').focus(), 300);
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('detailBackdrop').classList.remove('open');
+  detailTaskId = null;
+}
+
+function selectPriority(p, updateState=true) {
+  detailPriority = p;
+  ['high','med','low'].forEach(x => {
+    const c = document.getElementById('chip-'+x);
+    if (!c) return;
+    c.className = 'status-chip' + (x===p ? ` sel-${x}` : '');
+  });
+}
+
+function saveDetail() {
+  if (!detailTaskId) return;
+  const task = state.tasks.find(t=>t.id===detailTaskId);
+  if (!task) return;
+  task.title    = document.getElementById('detailTitle').value.trim() || task.title;
+  task.note     = document.getElementById('detailNote').value;
+  task.time     = document.getElementById('detailTime').value;
+  task.date     = document.getElementById('detailDate').value;
+  task.project  = document.getElementById('detailProject').value;
+  task.priority = detailPriority;
+  save(); closeDetail(); render();
+}
+
+function deleteTaskFromDetail() {
+  if (!detailTaskId) return;
+  if (!confirm('Xoá task này?')) return;
+  state.tasks = state.tasks.filter(t=>t.id!==detailTaskId);
+  save(); closeDetail(); render();
+}
+
+// ESC to close
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeDetail(); });
 
 function toggleTask(id) {
   const t = state.tasks.find(t=>t.id===id);
