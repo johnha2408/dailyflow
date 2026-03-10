@@ -413,6 +413,12 @@
   .task-body { pointer-events:none; }
   .task-check, .task-del { pointer-events:all; }
   .detail-status-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .time-chip {
+    padding:4px 10px; border-radius:99px; font-size:11px; font-weight:500;
+    cursor:pointer; background:var(--card); border:1px solid var(--border);
+    color:var(--muted); transition:all 0.12s; white-space:nowrap;
+  }
+  .time-chip:hover { background:rgba(108,99,255,0.15); color:var(--accent); border-color:var(--accent); }
   .status-chip {
     padding:6px 12px; border-radius:99px; font-size:11px; font-weight:600;
     cursor:pointer; border:1.5px solid transparent; transition:all 0.15s;
@@ -556,7 +562,21 @@
       </div>
       <div class="detail-field">
         <label>Thời gian</label>
-        <input class="detail-input" id="detailTime" placeholder="9:00 - 10:00" />
+        <div style="position:relative">
+          <input class="detail-input" id="detailTime" placeholder="9:00 - 10:00"
+            onfocus="showTimePresets()" oninput="document.getElementById('timePresets').style.display='none'"
+            style="padding-right:32px" />
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;color:var(--muted)"
+            onclick="toggleTimePresets()">⏰</span>
+        </div>
+        <div id="timePresets" style="display:none;margin-top:6px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px;display:none">
+          <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:2px 6px 6px;font-weight:600">Chọn nhanh</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px" id="timeChipList"></div>
+          <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+            <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:0 6px 6px;font-weight:600">Khoảng thời gian</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px" id="durationChipList"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="detail-field">
@@ -868,6 +888,93 @@ function bindTasks() {
   document.getElementById('notesArea')?.addEventListener('input', saveNotes);
 }
 function bindRoutine() {}
+
+// ============ TIME PRESETS ============
+const TIME_SLOTS = [
+  '6:00','6:30','7:00','7:30','8:00','8:30','9:00','9:30',
+  '10:00','10:30','11:00','11:30','12:00','13:00','13:30',
+  '14:00','14:30','15:00','15:30','16:00','17:00','18:00',
+  '19:00','20:00','21:00'
+];
+const DURATIONS = [
+  {label:'30 phút', mins:30}, {label:'1 giờ', mins:60},
+  {label:'1.5 giờ', mins:90}, {label:'2 giờ', mins:120},
+  {label:'Cả buổi sáng', val:'8:00 - 12:00'},
+  {label:'Cả buổi chiều', val:'13:00 - 17:00'},
+  {label:'Cả ngày', val:'8:00 - 17:00'},
+];
+
+function buildTimeChips() {
+  const cl = document.getElementById('timeChipList');
+  const dl = document.getElementById('durationChipList');
+  if (!cl || cl.children.length > 0) return;
+  TIME_SLOTS.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'time-chip';
+    el.textContent = t;
+    el.onclick = () => pickTimeSlot(t);
+    cl.appendChild(el);
+  });
+  DURATIONS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'time-chip';
+    el.textContent = d.label;
+    el.onclick = () => {
+      if (d.val) { setDetailTime(d.val); }
+      else {
+        const cur = document.getElementById('detailTime').value;
+        const start = cur ? cur.split(' - ')[0] : '9:00';
+        const [h,m] = start.split(':').map(Number);
+        const startMins = h*60 + (m||0);
+        const endMins = startMins + d.mins;
+        const eh = Math.floor(endMins/60), em = endMins%60;
+        setDetailTime(`${start} - ${eh}:${em===0?'00':em}`);
+      }
+    };
+    dl.appendChild(el);
+  });
+}
+
+let _timePickerFrom = null;
+
+function pickTimeSlot(t) {
+  if (!_timePickerFrom) {
+    _timePickerFrom = t;
+    document.getElementById('detailTime').value = t + ' - ?';
+    // highlight selected
+    document.querySelectorAll('#timeChipList .time-chip').forEach(c => {
+      c.style.background = c.textContent===t ? 'rgba(108,99,255,0.2)' : '';
+      c.style.color = c.textContent===t ? 'var(--accent)' : '';
+    });
+  } else {
+    setDetailTime(_timePickerFrom + ' - ' + t);
+    _timePickerFrom = null;
+  }
+}
+
+function setDetailTime(val) {
+  document.getElementById('detailTime').value = val;
+  document.getElementById('timePresets').style.display = 'none';
+  _timePickerFrom = null;
+}
+
+function showTimePresets() {
+  buildTimeChips();
+  document.getElementById('timePresets').style.display = 'block';
+}
+function toggleTimePresets() {
+  buildTimeChips();
+  const el = document.getElementById('timePresets');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el.style.display === 'block') document.getElementById('detailTime').focus();
+}
+
+// close presets when clicking outside detail panel
+document.addEventListener('click', e => {
+  const panel = document.getElementById('detailPanel');
+  const presets = document.getElementById('timePresets');
+  if (presets && !panel?.contains(e.target)) presets.style.display = 'none';
+});
 
 // ============ TASK DETAIL PANEL ============
 let detailTaskId = null;
