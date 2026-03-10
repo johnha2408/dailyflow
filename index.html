@@ -462,6 +462,85 @@
   .status-chip.sel-low  { background:rgba(67,233,123,0.15); color:var(--accent3); border-color:var(--accent3); }
   .created-at { font-size:11px; color:var(--muted); margin-top:4px; }
 
+  /* SUBTASK INLINE PREVIEW */
+  .subtask-preview { padding:4px 16px 8px 46px; display:flex; flex-direction:column; gap:3px; }
+  .subtask-preview-item {
+    display:flex; align-items:center; gap:7px;
+    font-size:11px; color:var(--muted); cursor:pointer;
+    padding:2px 0; transition:color 0.12s;
+  }
+  .subtask-preview-item:hover { color:var(--text); }
+  .subtask-mini-check {
+    width:13px; height:13px; border-radius:3px; flex-shrink:0;
+    border:1.5px solid var(--muted2); display:flex; align-items:center; justify-content:center;
+    transition:all 0.12s; pointer-events:all;
+  }
+  .subtask-mini-check.done { background:var(--accent3); border-color:var(--accent3); }
+  .subtask-mini-check.done::after { content:'✓'; font-size:8px; color:#0a0a0f; font-weight:800; }
+  .subtask-preview-label { flex:1; }
+  .subtask-preview-label.done { text-decoration:line-through; color:var(--muted2); }
+  .subtask-more { font-size:10px; color:var(--accent); padding:1px 0 0 20px; cursor:pointer; }
+  .subtask-progress {
+    display:flex; align-items:center; gap:6px;
+    font-size:10px; color:var(--muted); margin-top:2px;
+  }
+  .subtask-bar { flex:1; height:3px; background:var(--border); border-radius:99px; overflow:hidden; max-width:80px; }
+  .subtask-bar-fill { height:100%; background:var(--accent3); border-radius:99px; transition:width 0.3s; }
+
+  /* SUBTASK IN DETAIL PANEL */
+  .subtask-list { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+  .subtask-detail-item {
+    display:flex; align-items:center; gap:8px;
+    padding:7px 10px; background:var(--bg);
+    border:1px solid var(--border); border-radius:8px;
+    transition:border-color 0.12s; cursor:default;
+  }
+  .subtask-detail-item:hover { border-color:var(--muted2); }
+  .subtask-detail-check {
+    width:16px; height:16px; border-radius:4px; flex-shrink:0;
+    border:1.5px solid var(--muted2); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.12s;
+  }
+  .subtask-detail-check:hover { border-color:var(--accent3); }
+  .subtask-detail-check.done { background:var(--accent3); border-color:var(--accent3); }
+  .subtask-detail-check.done::after { content:'✓'; font-size:10px; color:#0a0a0f; font-weight:800; }
+  .subtask-detail-label {
+    flex:1; font-size:12px; color:var(--text); outline:none;
+    background:none; border:none; font-family:'DM Sans',sans-serif;
+    cursor:text;
+  }
+  .subtask-detail-label.done { text-decoration:line-through; color:var(--muted); }
+  .subtask-detail-del {
+    opacity:0; background:none; border:none; color:var(--muted);
+    cursor:pointer; font-size:12px; padding:2px 4px; transition:opacity 0.12s;
+  }
+  .subtask-detail-item:hover .subtask-detail-del { opacity:1; }
+  .subtask-detail-del:hover { color:var(--accent2); }
+  .subtask-add-row {
+    display:flex; gap:6px; align-items:center;
+  }
+  .subtask-add-input {
+    flex:1; background:var(--bg); border:1px dashed var(--muted2);
+    border-radius:8px; padding:6px 10px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:12px; outline:none;
+    transition:border-color 0.12s;
+  }
+  .subtask-add-input:focus { border-color:var(--accent); border-style:solid; }
+  .subtask-add-input::placeholder { color:var(--muted2); }
+  .subtask-add-btn {
+    background:rgba(108,99,255,0.15); color:var(--accent);
+    border:1px solid rgba(108,99,255,0.3); border-radius:8px;
+    padding:6px 12px; cursor:pointer; font-size:12px; font-weight:600;
+    transition:all 0.12s;
+  }
+  .subtask-add-btn:hover { background:rgba(108,99,255,0.25); }
+  .subtask-section-head {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+  }
+  .subtask-section-head label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; font-weight:600; }
+  .subtask-count { font-size:10px; color:var(--muted); }
+
   /* FILE NAV ITEMS */
   .file-nav-item {
     display:flex; align-items:center; gap:8px;
@@ -674,6 +753,18 @@
             <div style="display:flex;flex-wrap:wrap;gap:5px" id="durationChipList"></div>
           </div>
         </div>
+      </div>
+    </div>
+    <div class="detail-field">
+      <div class="subtask-section-head">
+        <label>✅ Sub-tasks</label>
+        <span class="subtask-count" id="detailSubCount"></span>
+      </div>
+      <div class="subtask-list" id="detailSubList"></div>
+      <div class="subtask-add-row">
+        <input class="subtask-add-input" id="subtaskInput" placeholder="Thêm sub-task... (Enter)"
+          onkeydown="if(event.key==='Enter')addSubtask()" />
+        <button class="subtask-add-btn" onclick="addSubtask()">+</button>
       </div>
     </div>
     <div class="detail-field">
@@ -945,18 +1036,43 @@ function renderTaskItem(t) {
       <button class="tbtn stop"        onclick="event.stopPropagation();stopTimer('${t.id}')">⏹</button>`;
   }
 
+  // subtask preview
+  const subs = t.subtasks || [];
+  const subDone = subs.filter(s=>s.done).length;
+  const subTotal = subs.length;
+  let subPreview = '';
+  if (subTotal > 0) {
+    const pct = Math.round(subDone/subTotal*100);
+    const preview = subs.slice(0,2).map(s => `
+      <div class="subtask-preview-item" onclick="event.stopPropagation();toggleSubtask('${t.id}','${s.id}')">
+        <div class="subtask-mini-check ${s.done?'done':''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${s.id}')"></div>
+        <span class="subtask-preview-label ${s.done?'done':''}">${s.title}</span>
+      </div>`).join('');
+    const more = subTotal > 2 ? `<div class="subtask-more" onclick="event.stopPropagation();openDetail('${t.id}')">+${subTotal-2} sub-task nữa…</div>` : '';
+    subPreview = `
+      <div class="subtask-preview">
+        <div class="subtask-progress">
+          <div class="subtask-bar"><div class="subtask-bar-fill" style="width:${pct}%"></div></div>
+          <span>${subDone}/${subTotal}</span>
+        </div>
+        ${preview}${more}
+      </div>`;
+  }
+
   return `
     <div class="task-item ${t.done?'completed':''}" id="task_${t.id}" onclick="openDetail('${t.id}')">
       <div class="task-check ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}')"></div>
       <div class="task-priority p-${t.priority}"></div>
-      <div class="task-body">
-        <div class="task-title">${t.title}</div>
-        <div class="task-meta">
+      <div class="task-body" style="pointer-events:all">
+        <div class="task-title" style="pointer-events:none">${t.title}</div>
+        <div class="task-meta" style="pointer-events:none">
           ${proj?`<span class="task-project" style="background:${proj.color}22;color:${proj.color}">${proj.name}</span>`:''}
           ${t.time?`<span class="task-time">⏰ ${t.time}</span>`:''}
-          ${t.note?`<span class="task-time">📝 có ghi chú</span>`:''}
+          ${t.note?`<span class="task-time">📝</span>`:''}
           ${t.totalLogged&&!isRunning&&!isPaused?`<span class="total-time-badge">✓ ${fmtElapsed(t.totalLogged)}</span>`:''}
+          ${subTotal>0?`<span class="task-time" style="color:${subDone===subTotal?'var(--accent3)':'var(--muted)'}">☑ ${subDone}/${subTotal}</span>`:''}
         </div>
+        ${subPreview}
       </div>
       <div class="task-timer-wrap" onclick="event.stopPropagation()">
         <span class="task-timer-display ${tClass}" id="tdisp_${t.id}">${dispTime}</span>
@@ -1114,24 +1230,93 @@ function openDetail(id) {
   detailTaskId = id;
   detailPriority = task.priority || 'med';
 
-  // populate fields
   document.getElementById('detailTitle').value = task.title || '';
   document.getElementById('detailNote').value = task.note || '';
   document.getElementById('detailTime').value = task.time || '';
   document.getElementById('detailDate').value = task.date || today();
 
-  // project select
   const sel = document.getElementById('detailProject');
   sel.innerHTML = state.projects.map(p=>`<option value="${p.id}" ${p.id===task.project?'selected':''}>${p.name}</option>`).join('');
 
-  // priority chips
   selectPriority(detailPriority, false);
-
   document.getElementById('detailCreated').textContent = task.createdAt ? `Tạo lúc: ${task.createdAt}` : '';
+  document.getElementById('subtaskInput').value = '';
+
+  renderDetailSubtasks(task);
 
   document.getElementById('detailPanel').classList.add('open');
   document.getElementById('detailBackdrop').classList.add('open');
   setTimeout(()=>document.getElementById('detailTitle').focus(), 300);
+}
+
+function renderDetailSubtasks(task) {
+  const subs = task.subtasks || [];
+  const done = subs.filter(s=>s.done).length;
+  document.getElementById('detailSubCount').textContent = subs.length ? `${done}/${subs.length} hoàn thành` : '';
+  const list = document.getElementById('detailSubList');
+  list.innerHTML = subs.map(s => `
+    <div class="subtask-detail-item" id="dsub_${s.id}">
+      <div class="subtask-detail-check ${s.done?'done':''}" onclick="toggleSubtaskDetail('${task.id}','${s.id}')"></div>
+      <input class="subtask-detail-label ${s.done?'done':''}" value="${s.title.replace(/"/g,'&quot;')}"
+        onblur="renameSubtask('${task.id}','${s.id}',this.value)"
+        onkeydown="if(event.key==='Enter'){this.blur();document.getElementById('subtaskInput').focus()}"
+        onclick="event.stopPropagation()" />
+      <button class="subtask-detail-del" onclick="deleteSubtask('${task.id}','${s.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function addSubtask() {
+  const inp = document.getElementById('subtaskInput');
+  const title = inp.value.trim();
+  if (!title || !detailTaskId) return;
+  const task = state.tasks.find(t=>t.id===detailTaskId);
+  if (!task) return;
+  if (!task.subtasks) task.subtasks = [];
+  task.subtasks.push({ id: t(), title, done: false });
+  inp.value = '';
+  save();
+  renderDetailSubtasks(task);
+  // update inline preview without full re-render
+  updateTaskRowSubPreview(task);
+}
+
+function toggleSubtaskDetail(taskId, subId) {
+  const task = state.tasks.find(t=>t.id===taskId);
+  if (!task?.subtasks) return;
+  const sub = task.subtasks.find(s=>s.id===subId);
+  if (sub) { sub.done = !sub.done; save(); renderDetailSubtasks(task); updateTaskRowSubPreview(task); }
+}
+
+function toggleSubtask(taskId, subId) {
+  const task = state.tasks.find(t=>t.id===taskId);
+  if (!task?.subtasks) return;
+  const sub = task.subtasks.find(s=>s.id===subId);
+  if (sub) { sub.done = !sub.done; save(); updateTaskRowSubPreview(task); }
+}
+
+function renameSubtask(taskId, subId, val) {
+  const task = state.tasks.find(t=>t.id===taskId);
+  const sub = task?.subtasks?.find(s=>s.id===subId);
+  if (sub && val.trim()) { sub.title = val.trim(); save(); updateTaskRowSubPreview(task); }
+}
+
+function deleteSubtask(taskId, subId) {
+  const task = state.tasks.find(t=>t.id===taskId);
+  if (!task?.subtasks) return;
+  task.subtasks = task.subtasks.filter(s=>s.id!==subId);
+  save(); renderDetailSubtasks(task); updateTaskRowSubPreview(task);
+}
+
+function updateTaskRowSubPreview(task) {
+  // lightweight DOM update — rebuild just this task row
+  const el = document.getElementById('task_'+task.id);
+  if (el) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderTaskItem(task);
+    el.replaceWith(tmp.firstElementChild);
+  }
+  updateBadge();
 }
 
 function closeDetail() {
