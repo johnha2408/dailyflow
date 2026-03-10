@@ -253,10 +253,43 @@
     opacity:0; background:none; border:none; color:var(--muted);
     cursor:pointer; font-size:14px; padding:2px 4px;
     transition:opacity 0.15s, color 0.15s;
-    margin-left:auto; flex-shrink:0;
+    margin-left:4px; flex-shrink:0;
   }
   .task-item:hover .task-del { opacity:1; }
   .task-del:hover { color:var(--accent2); }
+
+  /* TASK TIMER */
+  .task-timer-wrap {
+    display:flex; align-items:center; gap:4px; flex-shrink:0;
+    margin-left:auto;
+  }
+  .task-timer-display {
+    font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
+    min-width:48px; text-align:right;
+    font-variant-numeric:tabular-nums;
+    color:var(--muted); transition:color 0.2s;
+  }
+  .task-timer-display.running { color:var(--accent3); }
+  .task-timer-display.paused  { color:var(--accent4); }
+  .task-timer-display.has-time { color:var(--muted); }
+  .tbtn {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:6px; padding:3px 7px; font-size:11px; cursor:pointer;
+    transition:all 0.12s; white-space:nowrap; flex-shrink:0;
+    opacity:0;
+  }
+  .task-item:hover .tbtn { opacity:1; }
+  .tbtn.always { opacity:1 !important; }
+  .tbtn.start:hover  { background:rgba(67,233,123,0.15); color:var(--accent3); border-color:var(--accent3); }
+  .tbtn.pause:hover  { background:rgba(247,151,30,0.15); color:var(--accent4); border-color:var(--accent4); }
+  .tbtn.stop:hover   { background:rgba(255,101,132,0.15); color:var(--accent2); border-color:var(--accent2); }
+  .tbtn.running-btn  { background:rgba(67,233,123,0.1); color:var(--accent3); border-color:var(--accent3); opacity:1 !important; }
+  .tbtn.paused-btn   { background:rgba(247,151,30,0.1); color:var(--accent4); border-color:var(--accent4); opacity:1 !important; }
+  .total-time-badge {
+    font-size:10px; color:var(--accent3); background:rgba(67,233,123,0.1);
+    border-radius:99px; padding:1px 7px; font-weight:600;
+    border:1px solid rgba(67,233,123,0.2);
+  }
 
   /* EMPTY */
   .empty-state {
@@ -822,6 +855,26 @@ function renderTaskView() {
 
 function renderTaskItem(t) {
   const proj = state.projects.find(p=>p.id===t.project);
+  const ts = timerState[t.id] || {};
+  const elapsed = ts.total || 0;
+  const isRunning = !!ts.running;
+  const isPaused  = !ts.running && elapsed > 0;
+  const dispTime  = elapsed > 0 ? fmtElapsed(elapsed) : '';
+  const tClass    = isRunning ? 'running' : (isPaused ? 'paused' : (elapsed>0?'has-time':''));
+
+  let timerBtns = '';
+  if (!isRunning && !isPaused) {
+    timerBtns = `<button class="tbtn start" onclick="event.stopPropagation();startTimer('${t.id}')">▶ Start</button>`;
+  } else if (isRunning) {
+    timerBtns = `
+      <button class="tbtn running-btn" onclick="event.stopPropagation();pauseTimer('${t.id}')">⏸</button>
+      <button class="tbtn stop"        onclick="event.stopPropagation();stopTimer('${t.id}')">⏹</button>`;
+  } else {
+    timerBtns = `
+      <button class="tbtn paused-btn"  onclick="event.stopPropagation();startTimer('${t.id}')">▶</button>
+      <button class="tbtn stop"        onclick="event.stopPropagation();stopTimer('${t.id}')">⏹</button>`;
+  }
+
   return `
     <div class="task-item ${t.done?'completed':''}" id="task_${t.id}" onclick="openDetail('${t.id}')">
       <div class="task-check ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}')"></div>
@@ -832,7 +885,12 @@ function renderTaskItem(t) {
           ${proj?`<span class="task-project" style="background:${proj.color}22;color:${proj.color}">${proj.name}</span>`:''}
           ${t.time?`<span class="task-time">⏰ ${t.time}</span>`:''}
           ${t.note?`<span class="task-time">📝 có ghi chú</span>`:''}
+          ${t.totalLogged&&!isRunning&&!isPaused?`<span class="total-time-badge">✓ ${fmtElapsed(t.totalLogged)}</span>`:''}
         </div>
+      </div>
+      <div class="task-timer-wrap" onclick="event.stopPropagation()">
+        <span class="task-timer-display ${tClass}" id="tdisp_${t.id}">${dispTime}</span>
+        ${timerBtns}
       </div>
       <button class="task-del" onclick="event.stopPropagation();deleteTask('${t.id}')">✕</button>
     </div>
@@ -1043,6 +1101,78 @@ function deleteTaskFromDetail() {
 
 // ESC to close
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeDetail(); });
+
+// ============ TASK TIMER ENGINE ============
+let timerState = {}; // { [taskId]: { total, running, intervalId, startedAt } }
+let _masterTick = null;
+
+function fmtElapsed(secs) {
+  const h = Math.floor(secs/3600);
+  const m = Math.floor((secs%3600)/60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function startTimer(id) {
+  // pause any other running timer first
+  Object.keys(timerState).forEach(tid => {
+    if (tid !== id && timerState[tid].running) pauseTimer(tid);
+  });
+  if (!timerState[id]) timerState[id] = { total:0, running:false };
+  timerState[id].running = true;
+  timerState[id].startedAt = Date.now();
+  if (!_masterTick) {
+    _masterTick = setInterval(tickAllTimers, 1000);
+  }
+  render();
+}
+
+function pauseTimer(id) {
+  if (!timerState[id]?.running) return;
+  const elapsed = Math.floor((Date.now() - timerState[id].startedAt) / 1000);
+  timerState[id].total = (timerState[id].total||0) + elapsed;
+  timerState[id].running = false;
+  checkMasterTick();
+  render();
+}
+
+function stopTimer(id) {
+  if (!timerState[id]) return;
+  if (timerState[id].running) {
+    const elapsed = Math.floor((Date.now() - timerState[id].startedAt) / 1000);
+    timerState[id].total = (timerState[id].total||0) + elapsed;
+  }
+  const finalTime = timerState[id].total || 0;
+  // save logged time to task
+  const task = state.tasks.find(t=>t.id===id);
+  if (task) {
+    task.totalLogged = (task.totalLogged||0) + finalTime;
+    save();
+  }
+  delete timerState[id];
+  checkMasterTick();
+  render();
+}
+
+function tickAllTimers() {
+  let anyRunning = false;
+  Object.keys(timerState).forEach(id => {
+    const ts = timerState[id];
+    if (!ts.running) return;
+    anyRunning = true;
+    const elapsed = Math.floor((Date.now() - ts.startedAt) / 1000);
+    const total = (ts.total||0) + elapsed;
+    const el = document.getElementById('tdisp_'+id);
+    if (el) { el.textContent = fmtElapsed(total); el.className = 'task-timer-display running'; }
+  });
+  if (!anyRunning) checkMasterTick();
+}
+
+function checkMasterTick() {
+  const anyRunning = Object.values(timerState).some(ts=>ts.running);
+  if (!anyRunning && _masterTick) { clearInterval(_masterTick); _masterTick=null; }
+}
 
 function toggleTask(id) {
   const t = state.tasks.find(t=>t.id===id);
