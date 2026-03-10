@@ -99,6 +99,13 @@
   .project-dot {
     width:8px; height:8px; border-radius:50%; flex-shrink:0;
   }
+  .proj-del {
+    opacity:0; font-size:10px; color:var(--muted);
+    transition:opacity 0.15s, color 0.15s;
+    padding:2px 4px; border-radius:4px; flex-shrink:0;
+  }
+  .nav-item:hover .proj-del { opacity:1; }
+  .proj-del:hover { color:var(--accent2) !important; }
 
   /* MAIN */
   .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -555,9 +562,10 @@ function updateSidebarDate() {
 function renderProjectNav() {
   const el = document.getElementById('projectNavList');
   el.innerHTML = state.projects.map(p => `
-    <div class="nav-item ${currentView===p.id?'active':''}" onclick="setView('${p.id}')">
+    <div class="nav-item ${currentView===p.id?'active':''}" onclick="setView('${p.id}')" style="position:relative">
       <div class="project-dot" style="background:${p.color}"></div>
-      ${p.name}
+      <span style="flex:1">${p.name}</span>
+      <span class="proj-del" onclick="event.stopPropagation();deleteProject('${p.id}')" title="Xoá dự án">✕</span>
     </div>
   `).join('');
 }
@@ -810,6 +818,13 @@ function submitTask() {
 }
 
 // Modal project
+function deleteProject(id) {
+  if (!confirm('Xoá dự án này? Các task thuộc dự án sẽ chuyển về "Cá nhân".')) return;
+  state.tasks.forEach(t => { if(t.project===id) t.project='personal'; });
+  state.projects = state.projects.filter(p => p.id !== id);
+  if (currentView === id) currentView = 'today';
+  save(); render();
+}
 function openProjectModal() { document.getElementById('projectModal').classList.add('open'); }
 function closeProjectModal() { document.getElementById('projectModal').classList.remove('open'); }
 function submitProject() {
