@@ -558,6 +558,47 @@
   }
   .file-nav-item:hover .file-del { opacity:1; }
   .file-nav-item .file-del:hover { color:var(--accent2); }
+
+  /* EXPENSE */
+  .exp-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:16px; display:flex;
+    align-items:flex-start; gap:14px; transition:border-color 0.15s;
+    position:relative; overflow:hidden;
+  }
+  .exp-card:hover { border-color:var(--muted2); }
+  .exp-card.due-soon { border-color:rgba(247,151,30,0.4); }
+  .exp-card.overdue  { border-color:rgba(255,101,132,0.4); }
+  .exp-card::before {
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:3px; border-radius:3px 0 0 3px;
+  }
+  .exp-card.due-soon::before { background:var(--accent4); }
+  .exp-card.overdue::before  { background:var(--accent2); }
+  .exp-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
+  .exp-body { flex:1; min-width:0; }
+  .exp-name { font-size:14px; font-weight:500; color:var(--text); margin-bottom:4px; }
+  .exp-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .exp-amount { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:var(--accent3); }
+  .exp-tag {
+    font-size:10px; padding:2px 8px; border-radius:99px;
+    background:var(--surface); color:var(--muted); border:1px solid var(--border);
+    font-weight:500;
+  }
+  .exp-dates { font-size:11px; color:var(--muted); margin-top:6px; display:flex; flex-wrap:wrap; gap:12px; }
+  .exp-next { font-size:11px; font-weight:600; }
+  .exp-next.due-soon { color:var(--accent4); }
+  .exp-next.overdue  { color:var(--accent2); }
+  .exp-next.ok       { color:var(--accent3); }
+  .exp-actions { display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+  .exp-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:4px; opacity:0; transition:opacity 0.12s; }
+  .exp-card:hover .exp-del { opacity:1; }
+  .exp-del:hover { color:var(--accent2); }
+  .exp-summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+  .exp-sum-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+  .exp-sum-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:600; margin-bottom:4px; }
+  .exp-sum-value { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
+  .exp-grid { display:flex; flex-direction:column; gap:10px; }
 </style>
 </head>
 <body>
@@ -598,6 +639,18 @@
       <div class="nav-item" onclick="openFileModal()">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Thêm file / link
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">💸 Expense</div>
+      <div class="nav-item ${currentView==='expenses'?'active':''}" id="expenseNavBtn" onclick="setView('expenses')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Xem chi tiêu
+        <span class="nav-badge" id="expireBadge" style="background:var(--accent2);display:none">!</span>
+      </div>
+      <div class="nav-item" onclick="openExpenseModal()">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Thêm expense
       </div>
     </div>
   </aside>
@@ -711,6 +764,63 @@
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeProjectModal()">Huỷ</button>
       <button class="btn btn-primary" onclick="submitProject()">Tạo dự án</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div class="modal-overlay" id="expenseModal">
+  <div class="modal" style="width:440px">
+    <h3>💸 Thêm expense</h3>
+    <div class="form-row">
+      <label class="form-label">Tên / Mô tả</label>
+      <input class="form-input" id="expName" placeholder="VD: Hostinger VPS, Google Workspace..." />
+    </div>
+    <div class="detail-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row">
+        <label class="form-label">Số tiền ($)</label>
+        <input class="form-input" id="expAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Loại</label>
+        <select class="form-input" id="expCategory">
+          <option value="subscription">🔄 Subscription</option>
+          <option value="tool">🛠 Tool / Software</option>
+          <option value="hosting">🌐 Hosting / Domain</option>
+          <option value="ads">📢 Quảng cáo</option>
+          <option value="freelance">👤 Freelancer</option>
+          <option value="other">📦 Khác</option>
+        </select>
+      </div>
+    </div>
+    <div class="detail-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row">
+        <label class="form-label">Ngày chi</label>
+        <input class="form-input" id="expDate" type="date" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Chu kỳ thanh toán</label>
+        <select class="form-input" id="expCycle">
+          <option value="once">Một lần</option>
+          <option value="monthly">Hàng tháng</option>
+          <option value="yearly">Hàng năm</option>
+          <option value="quarterly">Hàng quý</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Dự án liên quan</label>
+      <select class="form-input" id="expProject">
+        <option value="">— Không có —</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Ghi chú</label>
+      <input class="form-input" id="expNote" placeholder="Thêm ghi chú..." />
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeExpenseModal()">Huỷ</button>
+      <button class="btn btn-primary" onclick="submitExpense()">Lưu</button>
     </div>
   </div>
 </div>
@@ -846,6 +956,11 @@ function defaultState() {
       { id:'f2', name:'Storimatic n8n Workflow', url:'https://github.com', type:'github', project:'storimatic' },
       { id:'f3', name:'Trading Journal', url:'https://notion.so', type:'notion', project:'trading' },
     ],
+    expenses: [
+      { id:'e1', name:'Hostinger VPS', amount:9.99, category:'hosting', date:'2026-03-01', cycle:'monthly', project:'storimatic', note:'' },
+      { id:'e2', name:'ngrok Pro', amount:10, category:'tool', date:'2026-03-05', cycle:'monthly', project:'storimatic', note:'' },
+      { id:'e3', name:'Claude API', amount:20, category:'subscription', date:'2026-03-10', cycle:'monthly', project:'', note:'' },
+    ],
   };
 }
 
@@ -870,12 +985,14 @@ function render() {
   updateSidebarDate();
   renderProjectNav();
   updateBadge();
+  updateExpireBadge();
   const c = document.getElementById('mainContent');
-  const titles = { today:'Hôm nay', all:'Tất cả Tasks', routine:'Quy trình hàng ngày' };
+  const titles = { today:'Hôm nay', all:'Tất cả Tasks', routine:'Quy trình hàng ngày', expenses:'💸 Chi tiêu & Expenses' };
   document.getElementById('viewTitle').textContent =
     state.projects.find(p=>p.id===currentView)?.name || titles[currentView] || 'Tasks';
 
-  if (currentView === 'routine') { c.innerHTML = renderRoutineView(); bindRoutine(); }
+  if (currentView === 'routine')  { c.innerHTML = renderRoutineView(); bindRoutine(); }
+  else if (currentView === 'expenses') { c.innerHTML = renderExpenseView(); }
   else { c.innerHTML = renderTaskView(); bindTasks(); }
 }
 
@@ -1219,6 +1336,141 @@ document.addEventListener('click', e => {
   const presets = document.getElementById('timePresets');
   if (presets && !panel?.contains(e.target)) presets.style.display = 'none';
 });
+
+// ============ EXPENSE ============
+const EXP_ICONS = { subscription:'🔄', tool:'🛠', hosting:'🌐', ads:'📢', freelance:'👤', other:'📦' };
+const EXP_LABELS = { subscription:'Subscription', tool:'Tool/Software', hosting:'Hosting/Domain', ads:'Quảng cáo', freelance:'Freelancer', other:'Khác' };
+const CYCLE_LABELS = { once:'Một lần', monthly:'Hàng tháng', yearly:'Hàng năm', quarterly:'Hàng quý' };
+
+function nextDueDate(exp) {
+  if (exp.cycle === 'once') return null;
+  const base = new Date(exp.date);
+  const now = new Date();
+  let next = new Date(base);
+  while (next <= now) {
+    if (exp.cycle === 'monthly')   next.setMonth(next.getMonth()+1);
+    else if (exp.cycle === 'yearly')    next.setFullYear(next.getFullYear()+1);
+    else if (exp.cycle === 'quarterly') next.setMonth(next.getMonth()+3);
+  }
+  return next;
+}
+
+function daysUntil(date) {
+  if (!date) return null;
+  return Math.ceil((date - new Date()) / 86400000);
+}
+
+function updateExpireBadge() {
+  const badge = document.getElementById('expireBadge');
+  if (!badge) return;
+  const hasUrgent = (state.expenses||[]).some(e => {
+    const next = nextDueDate(e);
+    const d = daysUntil(next);
+    return d !== null && d <= 7;
+  });
+  badge.style.display = hasUrgent ? 'inline' : 'none';
+}
+
+function renderExpenseView() {
+  const exps = state.expenses || [];
+  const monthly = exps.filter(e=>e.cycle==='monthly').reduce((s,e)=>s+e.amount,0);
+  const yearly  = exps.filter(e=>e.cycle==='yearly').reduce((s,e)=>s+e.amount,0);
+  const total   = monthly + (yearly/12);
+
+  const cards = exps.map(e => {
+    const proj = state.projects.find(p=>p.id===e.project);
+    const next = nextDueDate(e);
+    const days = daysUntil(next);
+    let dueClass='', dueText='';
+    if (next) {
+      if (days < 0)       { dueClass='overdue';  dueText=`⚠️ Quá hạn ${Math.abs(days)} ngày`; }
+      else if (days <= 3) { dueClass='due-soon'; dueText=`🔴 Đến hạn trong ${days} ngày`; }
+      else if (days <= 7) { dueClass='due-soon'; dueText=`🟠 Đến hạn trong ${days} ngày`; }
+      else                { dueClass='';         dueText=`✅ Hạn tiếp: ${next.toLocaleDateString('vi-VN')}`; }
+    } else {
+      dueText = 'Thanh toán một lần';
+    }
+    return `
+      <div class="exp-card ${dueClass}">
+        <div class="exp-icon">${EXP_ICONS[e.category]||'📦'}</div>
+        <div class="exp-body">
+          <div class="exp-name">${e.name}</div>
+          <div class="exp-meta">
+            <span class="exp-amount">$${Number(e.amount).toFixed(2)}</span>
+            <span class="exp-tag">${EXP_LABELS[e.category]||e.category}</span>
+            <span class="exp-tag">${CYCLE_LABELS[e.cycle]||e.cycle}</span>
+            ${proj?`<span class="exp-tag" style="background:${proj.color}22;color:${proj.color};border-color:${proj.color}44">${proj.name}</span>`:''}
+          </div>
+          <div class="exp-dates">
+            <span>📅 Ngày chi: ${new Date(e.date).toLocaleDateString('vi-VN')}</span>
+            <span class="exp-next ${dueClass||'ok'}">${dueText}</span>
+          </div>
+          ${e.note?`<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 ${e.note}</div>`:''}
+        </div>
+        <div class="exp-actions">
+          <button class="exp-del" onclick="deleteExpense('${e.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="exp-summary-row">
+      <div class="exp-sum-card">
+        <div class="exp-sum-label">Tổng / tháng</div>
+        <div class="exp-sum-value c-green">$${total.toFixed(2)}</div>
+      </div>
+      <div class="exp-sum-card">
+        <div class="exp-sum-label">Chi phí cố định / tháng</div>
+        <div class="exp-sum-value c-purple">$${monthly.toFixed(2)}</div>
+      </div>
+      <div class="exp-sum-card">
+        <div class="exp-sum-label">Hàng năm (tổng)</div>
+        <div class="exp-sum-value c-orange">$${(monthly*12+yearly).toFixed(2)}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--muted)">${exps.length} khoản chi tiêu</div>
+      <button class="btn btn-primary" onclick="openExpenseModal()">+ Thêm expense</button>
+    </div>
+    <div class="exp-grid">
+      ${exps.length ? cards : '<div style="text-align:center;padding:40px;color:var(--muted)">✨ Chưa có expense nào. Thêm khoản đầu tiên!</div>'}
+    </div>`;
+}
+
+function openExpenseModal() {
+  document.getElementById('expDate').value = today();
+  const sel = document.getElementById('expProject');
+  sel.innerHTML = `<option value="">— Không có —</option>` +
+    state.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('expenseModal').classList.add('open');
+  setTimeout(()=>document.getElementById('expName').focus(),100);
+}
+function closeExpenseModal() {
+  document.getElementById('expenseModal').classList.remove('open');
+  ['expName','expAmount','expNote'].forEach(id=>document.getElementById(id).value='');
+}
+function submitExpense() {
+  const name = document.getElementById('expName').value.trim();
+  const amount = parseFloat(document.getElementById('expAmount').value);
+  if (!name || isNaN(amount)) return;
+  if (!state.expenses) state.expenses = [];
+  state.expenses.push({
+    id: t(), name, amount,
+    category: document.getElementById('expCategory').value,
+    date:     document.getElementById('expDate').value,
+    cycle:    document.getElementById('expCycle').value,
+    project:  document.getElementById('expProject').value,
+    note:     document.getElementById('expNote').value.trim(),
+  });
+  save(); closeExpenseModal();
+  if (currentView === 'expenses') render();
+  else updateExpireBadge();
+}
+function deleteExpense(id) {
+  if (!confirm('Xoá khoản chi tiêu này?')) return;
+  state.expenses = state.expenses.filter(e=>e.id!==id);
+  save(); render();
+}
 
 // ============ TASK DETAIL PANEL ============
 let detailTaskId = null;
